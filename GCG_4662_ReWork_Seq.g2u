@@ -1,0 +1,93 @@
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+'8/22/2017 Dawn Hughes. This program creates two additional labor sequences for each seq in a BOM or Router for rework labor.
+' Hooks 16800 and 50120, run from new work order, dependent on BOM or Router
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+F.Intrinsic.Control.CallSub(BDF)
+Function.Intrinsic.Control.CallSub(unload)
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4662_ReWork_Seq.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.BDF.Start
+F.Intrinsic.Control.SetErrorHandler("Unload_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+V.Local..BulkDeclareString(sJob, sSuffix, ssql, sRet, sTemp)
+V.Local.iSeq.Declare(Long)
+
+Function.Intrinsic.Control.If(V.Caller.Hook, =, 16800)
+	'Router Create
+	V.Local.sRet.Set(V.Passed.000113)
+	F.Intrinsic.String.Split(V.Local.sRet," Part", V.Local.sRet)
+	F.Intrinsic.String.Replace(V.Local.sRet(0), "Work Order:  ", "", V.Local.sTemp)
+	F.Intrinsic.String.Split(V.Local.sTemp,"-", V.Local.sTemp)
+	V.Local.sJob.Set(V.Local.sTemp(0))
+	Function.Intrinsic.Control.If(V.Local.sTemp(1), <>, "OOB")
+		V.Local.sSuffix.Set(V.Local.sTemp(1))
+	Function.Intrinsic.Control.Else
+		V.Local.sSuffix.Set("   ")
+	Function.Intrinsic.Control.EndIf
+Function.Intrinsic.Control.ElseIf(V.Caller.Hook, =, 50120)
+	'BOM Create
+	V.Local.sJob.Set(V.Passed.JOB)
+	V.Local.sSuffix.Set(V.Passed.SUFFIX)
+Function.Intrinsic.Control.Else
+Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+
+F.Intrinsic.String.Build("Select SEQ, DATE_START, DATE_DUE, WO_INSERT, ROUTER, ROUTER_SEQ, UNITS_OPEN, UNITS_COMPLETE, PERCENT_COMPLETE, UNITS_SCRAP, UNITS_COMMITTED, DOLLARS_COMMITTED, HOURS_ESTIMATED, HOURS_ACTUAL, FACTOR_WORKCENTER  From JOB_OPERATIONS  Where JOB = '{0}' And SUFFIX = '{1}' And DESCRIPTION = '{2}'", V.Local.sJob, V.Local.sSuffix, "REWORK LABOR", V.Local.ssql)
+F.ODBC.Connection!con.ExecuteAndReturn(V.Local.ssql, V.Local.sRet)
+F.Intrinsic.String.Split(V.Local.sRet(0).LBound.sRet, "*!*", V.Local.sRet)
+F.Intrinsic.Math.Add(V.Local.sRet, 1, V.Local.sRet)
+F.Intrinsic.String.Build("Insert Into JOB_OPERATIONS (JOB, SUFFIX, SEQ, LMO, DESCRIPTION, DATE_START, DATE_DUE, WO_INSERT, ROUTER, ROUTER_SEQ, UNITS_OPEN, UNITS_COMPLETE, PERCENT_COMPLETE, UNITS_SCRAP, UNITS_COMMITTED, DOLLARS_COMMITTED, HOURS_ESTIMATED, HOURS_ACTUAL,  FACTOR_WORKCENTER ) Values ('{0}', '{1}', '{2}', '{3}', '{4}', '{5}', '{6}', '{7}', '{8}', '{9}', '{10}', '{11}', '{12}', '{13}', '{14}', '{15}', '{16}', '{17}', '{18}')" , V.Local.sJob, V.Local.sSuffix, V.Local.sRet(0), "L", "REWORK LABOR INTERNAL",V.Local.sRet(1), V.Local.sRet(2), V.Local.sRet(3), V.Local.sRet(4), V.Local.sRet(5), V.Local.sRet(6), V.Local.sRet(7), V.Local.sRet(8),V.Local.sRet(9), V.Local.sRet(10), V.Local.sRet(11), V.Local.sRet(12), V.Local.sRet(13), V.Local.sRet(14),V.Local.ssql)
+F.ODBC.Connection!con.Execute(V.Local.ssql)
+F.Intrinsic.Math.Add(V.Local.sRet, 1, V.Local.sRet)
+F.Intrinsic.String.Build("Insert Into JOB_OPERATIONS (JOB, SUFFIX, SEQ, LMO, DESCRIPTION, DATE_START, DATE_DUE, WO_INSERT, ROUTER, ROUTER_SEQ, UNITS_OPEN, UNITS_COMPLETE, PERCENT_COMPLETE , UNITS_SCRAP, UNITS_COMMITTED, DOLLARS_COMMITTED, HOURS_ESTIMATED, HOURS_ACTUAL,  FACTOR_WORKCENTER ) Values ('{0}', '{1}', '{2}', '{3}', '{4}', '{5}', '{6}', '{7}', '{8}', '{9}', '{10}', '{11}', '{12}', '{13}', '{14}', '{15}', '{16}', '{17}', '{18}')" , V.Local.sJob, V.Local.sSuffix, V.Local.sRet, "L", "REWORK LABOR EXTERNAL" ,V.Local.sRet(1), V.Local.sRet(2), V.Local.sRet(3), V.Local.sRet(4), V.Local.sRet(5), V.Local.sRet(6), V.Local.sRet(7), V.Local.sRet(8), V.Local.sRet(9), V.Local.sRet(10), V.Local.sRet(11), V.Local.sRet(12), V.Local.sRet(13), V.Local.sRet(14),V.Local.ssql)
+F.ODBC.Connection!con.Execute(V.Local.ssql)
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4662_ReWork_Seq.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.BDF.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.SetErrorHandler("Unload_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+'closing connection and ending program
+F.ODBC.Connection!con.Close
+Function.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4662_ReWork_Seq.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.End
+
+Function.Intrinsic.Control.EndIf
+Program.Sub.Unload.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$$}$12:00:00 AM$}$False
+Program.Sub.Comments.End
