@@ -1,0 +1,250 @@
+Program.Sub.ScreenSU.Start
+Gui.Form..Create
+Gui.Form..Caption("Data Collection")
+Gui.Form..Size(7755,3870)
+Gui.Form..MinX(0)
+Gui.Form..MinY(0)
+Gui.Form..Position(0,0)
+Gui.Form..BackColor(-2147483633)
+Gui.Form..MousePointer(0)
+Gui.Form..FontSize(10)
+Gui.Form.ddlDept.Create(DropDownList)
+Gui.Form.ddlDept.Size(3375,360)
+Gui.Form.ddlDept.Position(15,1185)
+Gui.Form.ddlDept.FontSize(10)
+Gui.Form.lbl1.Create(Label,"Department",True,1395,255,0,45,900,True,0,"Arial",10,-2147483633,0)
+Gui.Form.ddlWC.Create(DropDownList)
+Gui.Form.ddlWC.Size(3375,360)
+Gui.Form.ddlWC.Position(4020,1185)
+Gui.Form.ddlWC.FontSize(10)
+Gui.Form.lbl2.Create(Label,"Work Center",True,1785,255,0,4050,900,True,0,"Arial",10,-2147483633,0)
+Gui.Form.lbl3.Create(Label,"Discrepancy",True,1710,285,0,45,1755,True,0,"Arial",10,-2147483633,0)
+Gui.Form.ddlScrap.Create(DropDownList)
+Gui.Form.ddlScrap.Size(3375,360)
+Gui.Form.ddlScrap.Position(4005,2025)
+Gui.Form.ddlScrap.FontSize(10)
+Gui.Form.lbl4.Create(Label,"Scrap Code",True,1230,255,0,4080,1785,True,0,"Arial",10,-2147483633,0)
+Gui.Form.lblVendor.Create(Label,"Vendor Number",True,1680,255,0,45,2565,True,0,"Arial",10,-2147483633,0)
+Gui.Form.cmdSave.Create(Button)
+Gui.Form.cmdSave.Size(1725,375)
+Gui.Form.cmdSave.Position(4830,2640)
+Gui.Form.cmdSave.Caption("SAVE")
+Gui.Form.cmdSave.Event(Click,cmdSave_Click)
+Gui.Form.cmdSave.FontSize(12)
+Gui.Form.lbl6.Create(Label,"Job",True,540,255,0,60,105,True,0,"Arial",10,-2147483633,0)
+Gui.Form.txtJob.Create(TextBox,"",True,1215,345,0,30,345,True,0,"Arial",10,-2147483643,1)
+Gui.Form.txtJob.Locked(True)
+Gui.Form.lbl7.Create(Label,"Suffix",True,825,255,0,1620,105,True,0,"Arial",10,-2147483633,0)
+Gui.Form.txtSuffix.Create(TextBox,"",True,1170,345,0,1620,345,True,0,"Arial",10,-2147483643,1)
+Gui.Form.txtSuffix.Locked(True)
+Gui.Form.lbl8.Create(Label,"Seq",True,690,255,0,3120,105,True,0,"Arial",10,-2147483633,0)
+Gui.Form.txtSeq.Create(TextBox,"",True,1215,345,0,3120,345,True,0,"Arial",10,-2147483643,1)
+Gui.Form.txtSeq.Locked(True)
+Gui.Form.ddlVendor.Create(DropDownList)
+Gui.Form.ddlVendor.Size(3375,360)
+Gui.Form.ddlVendor.Position(15,2835)
+Gui.Form.ddlVendor.FontSize(10)
+Gui.Form.ddlDisc.Create(DropDownList)
+Gui.Form.ddlDisc.Size(3375,360)
+Gui.Form.ddlDisc.Position(15,2025)
+Gui.Form.ddlDisc.FontSize(10)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+V.Global.sType.Declare(String)
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+'8/30/2017 Dawn Hughes 
+'this will run when a user clocks into or out of a job where the sequence is rework labor internal or external- data collection
+' hooks #15934, #15810 #15915
+V.Local..BulkDeclareString(ssql, sIcon)
+
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+F.Intrinsic.String.Build("{0}\GAB\GAS\gss2.ico",V.Caller.PluginsDir,V.Local.sIcon)
+Gui.Form..Icon(V.Local.sIcon)
+F.Intrinsic.Control.If(V.Caller.Hook, =, 15934)
+	F.Intrinsic.String.Build("Select rTrim(DESCRIPTION) As DESCRIPTION From JOB_OPERATIONS Where JOB= '{0}' AND SUFFIX = '{1}' AND SEQ = '{2}'", V.Passed.009000, V.Passed.009001, V.Passed.009002, V.Local.ssql)
+	F.ODBC.Connection!con.ExecuteAndReturn(V.Local.ssql , V.Global.sType)
+	F.Intrinsic.Control.If(V.Global.sType, =, "REWORK LABOR INTERNAL", "OR",  V.Global.sType, =, "REWORK LABOR EXTERNAL")
+		F.Intrinsic.Control.CallSub(GUI)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.CallSub(Form_Unload)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.ElseIf(V.Caller.Hook, =, 15810, "OR", V.Caller.Hook, =, 15915)
+	F.Intrinsic.String.Build("Select rTrim(DESCRIPTION) As DESCRIPTION From JOB_OPERATIONS Where JOB= '{0}' AND SUFFIX = '{1}' AND SEQ = '{2}'", V.Passed.009990, V.Passed.009991, V.Passed.009992, V.Local.ssql)
+	F.ODBC.Connection!con.ExecuteAndReturn(V.Local.ssql , V.Global.sType)
+	F.Intrinsic.Control.If(V.Global.sType, =, "REWORK LABOR INTERNAL", "OR",  V.Global.sType, =, "REWORK LABOR EXTERNAL")
+		F.Intrinsic.Control.CallSub(GUI)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.CallSub(Form_Unload)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Else
+	F.Intrinsic.Control.CallSub(Form_Unload)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4662_Data_Collection.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(form_unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.GUI.Start
+F.Intrinsic.Control.SetErrorHandler("GUI_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+V.Local..BulkDeclareString(ssql, sRet)
+
+'fill browsers and ddls
+'ddlWC
+F.Data.Dictionary.CreateFromSQL("WC", "con", "Select (rTrim(MACHINE) +'   ' +rTrim(WC_NAME)) As WC, (rTrim(MACHINE) +'   ' +rTrim(WC_NAME)) As WC From WORKCENTERS Order by MACHINE")
+GUI.Form.ddlWC.AddItems("Dictionary", "WC")
+'ddlScrap
+F.Data.Dictionary.CreateFromSQL("Scrap", "con", "SELECT (rTrim(SCRAP_CODE)+'   ' +rTrim(SCRAP_CODE_DESC))  As Scrap,   (rTrim(SCRAP_CODE)+'   ' +rTrim(SCRAP_CODE_DESC))  As Scrap  FROM RJCT_SCRP_CODES WHERE SYS = 'REJ' AND SUB_SYS = 'CDE' ORDER BY SCRAP_CODE")
+GUI.Form.ddlScrap.AddItems("Dictionary", "Scrap")
+'ddlDept
+F.Data.Dictionary.CreateFromSQL("Dept", "con", "SELECT (rTrim(LOCATION)+rTrim(FILLER1)+'   ' +rTrim(LOCATION_DESC)) As Dept, (rTrim(LOCATION)+rTrim(FILLER1)+'   ' +rTRim(LOCATION_DESC)) As Dept  FROM LOCATIONS WHERE SYS = 'CMP' AND SUB_SYS = 'DEP' ORDER BY Dept")
+GUI.Form.ddlDept.AddItems("Dictionary", "Dept")
+'ddlDisc
+F.Data.Dictionary.CreateFromSQL("Disc", "con", "SELECT (rTrim(DISCREP_CODE)+'   ' +rTrim(DISCREP_DESC)) As Disc,(rTRim(DISCREP_CODE)+'   ' +rTrim(DISCREP_DESC)) As Disc FROM QUALITY_DISCRP_CD WHERE SYS = 'QUA' AND SUB_SYS = 'DIS' ORDER BY DISCREP_CODE")
+GUI.Form.ddlDisc.AddItems("Dictionary", "Disc")
+'ddlVendor
+F.Data.Dictionary.CreateFromSQL("Vendor", "con", "SELECT (rTRim(VENDOR)+'   ' +rTRim(NAME_VENDOR))  As Vendor, (rTRim(VENDOR)+'   ' +rTRim(NAME_VENDOR)) As Vendor  FROM V_VENDOR_MASTER Order by Vendor")
+GUI.Form.ddlVendor.AddItems("Dictionary", "Vendor")
+'check if external/internal for Vendor
+F.Intrinsic.Control.If(V.Global.sType, =, "REWORK LABOR EXTERNAL")
+	GUI.Form.ddlVendor.Visible(TRUE)
+	GUI.Form.lblVendor.Visible(TRUE)
+F.Intrinsic.Control.Else
+	GUI.Form.ddlVendor.Visible(FALSE)
+	GUI.Form.lblVendor.Visible(FALSE)
+F.Intrinsic.Control.EndIf
+
+'populate
+F.Intrinsic.Control.If(V.Caller.Hook, =, 15934)
+	'clock in- just populate job suffix seq- 
+	GUI.Form.txtJob.Text(V.Passed.009000)
+	GUI.Form.txtSuffix.Text(V.Passed.009001)
+	GUI.Form.txtSeq.Text(V.Passed.009002)
+F.Intrinsic.Control.ElseIf(V.Caller.Hook, =, 15810, "OR", V.Caller.Hook, =, 15915)
+	'this is update job- so we populate all
+	GUI.Form.txtJob.Text(V.Passed.009990)
+	GUI.Form.txtSuffix.Text(V.Passed.009991)
+	GUI.Form.txtSeq.Text(V.Passed.009992)
+	F.Intrinsic.String.Build("Select * From GCG_4662_DATA Where JOB='{0}' And SUFFIX='{1}' And SEQ='{2}'", V.Passed.009990, V.Passed.009991, V.Passed.009992, V.Local.ssql)
+	F.ODBC.Connection!con.ExecuteAndReturn(V.Local.ssql, V.Local.sRet)
+	Function.Intrinsic.Control.If(V.Local.sRet, <>, "")
+		F.Intrinsic.String.Split(V.Local.sRet, "*!*", V.Local.sRet)
+		GUI.Form.ddlDept.Text(V.Local.sRet(3))
+		GUI.Form.ddlWC.Text(V.Local.sRet(4))
+		GUI.Form.ddlDisc.Text(V.Local.sRet(5))
+		GUI.Form.ddlScrap.Text(V.Local.sRet(6))
+		GUI.Form.ddlVendor.Text(V.Local.sRet(7))
+	Function.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndIf
+GUI.Form..Show
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("GUI_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4662_Data_Collection.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(form_unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.GUI.End
+
+Program.Sub.cmdSave_Click.Start
+F.Intrinsic.Control.SetErrorHandler("cmdSave_Click_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+V.Local..BulkDeclareString(ssql, sRet, sDept, sWC, sDisc, sScrap, sVendor, sAct_Type, sDate)
+
+'check everything filled out
+Function.Intrinsic.Control.If(V.Screen.Form!ddlDept.Text, =, "")
+	F.Intrinsic.UI.Msgbox("Must Enter Department")
+	Function.Intrinsic.Control.ExitSub
+Function.Intrinsic.Control.ElseIf(V.Screen.Form!ddlWC.Text, =, "")
+	F.Intrinsic.UI.Msgbox("Must Enter Work Center")
+	Function.Intrinsic.Control.ExitSub
+Function.Intrinsic.Control.ElseIf(V.Screen.Form!ddlDisc.Text, =, "")
+	F.Intrinsic.UI.Msgbox("Must Enter Discrepancy")
+	Function.Intrinsic.Control.ExitSub
+Function.Intrinsic.Control.EndIf
+F.Intrinsic.Control.If(V.Global.sType, =, "REWORK LABOR EXTERNAL")
+	Function.Intrinsic.Control.If(V.Screen.Form!ddlVendor.Text, =, "")
+		F.Intrinsic.UI.Msgbox("Must Enter Vendor")
+		Function.Intrinsic.Control.ExitSub
+	Function.Intrinsic.Control.EndIf
+Function.Intrinsic.Control.EndIf
+
+V.Local.sDate.Set(V.Ambient.Date)
+
+F.Intrinsic.Control.If(V.Global.sType, =,"REWORK LABOR EXTERNAL")
+	V.Local.sAct_Type.Set("6")
+F.Intrinsic.Control.Else
+	V.Local.sAct_Type.Set("5")
+F.Intrinsic.Control.EndIf
+
+GUI.Form..Visible(FALSE)
+'need to save as PSQLFriendly
+V.local.sDept.Set(V.Screen.Form!ddlDept.Text)
+V.local.sWC.Set(V.Screen.Form!ddlWC.Text)
+V.local.sDisc.Set(V.Screen.Form!ddlDisc.Text)
+V.local.sScrap.Set(V.Screen.Form!ddlScrap.Text)
+V.local.sVendor.Set(V.Screen.Form!ddlVendor.Text)
+
+'if we make it to here we can save
+F.Intrinsic.String.Build("Select * From GCG_4662_DATA Where JOB='{0}' AND SUFFIX= '{1}' AND SEQ='{2}'", V.Screen.Form!txtJob.Text, V.Screen.Form!txtSuffix.Text, V.Screen.Form!txtSeq.Text, V.local.ssql)
+F.ODBC.Connection!con.ExecuteAndReturn(V.Local.ssql, V.Local.sRet)
+Function.Intrinsic.Control.If(V.Local.sRet, =, "")
+	'create new record
+	F.Intrinsic.String.Build("Insert Into GCG_4662_DATA (JOB, SUFFIX, SEQ, DEPARTMENT, WORK_CENTER, DISCREPANCY, SCRAP_CODE, VENDOR, ACT_TYPE, DATE_CLOSED) Values('{0}', '{1}', '{2}', '{3}', '{4}', '{5}', '{6}', '{7}', '{8}', '{9}')", V.Screen.Form!txtJob.Text, V.Screen.Form!txtSuffix.Text, V.Screen.Form!txtSeq.Text,V.local.sDept.PSQLFriendly, V.local.sWC.PSQLFriendly, V.local.sDisc.PSQLFriendly,V.local.sScrap.PSQLFriendly,V.local.sVendor.PSQLFriendly, V.Local.sAct_Type, V.Local.sDate.PervasiveDate,V.Local.ssql)
+	F.ODBC.Connection!con.Execute(V.Local.ssql)
+Function.Intrinsic.Control.Else
+	'update record
+	F.Intrinsic.String.Build("Update GCG_4662_DATA SET  DEPARTMENT='{0}', WORK_CENTER='{1}', DISCREPANCY='{2}', SCRAP_CODE='{3}', VENDOR='{4}', DATE_CLOSED='{5}' Where JOB='{6}' And SUFFIX='{7}' And SEQ='{8}'", V.local.sDept.PSQLFriendly, V.local.sWC.PSQLFriendly,V.local.sDisc.PSQLFriendly, V.local.sScrap.PSQLFriendly, V.local.sVendor.PSQLFriendly,V.Local.sDate.PervasiveDate,V.Screen.Form!txtJob.Text, V.Screen.Form!txtSuffix.Text, V.Screen.Form!txtSeq.Text, V.Local.ssql)
+	F.ODBC.Connection!con.Execute(V.Local.ssql)
+Function.Intrinsic.Control.EndIf
+F.Intrinsic.Control.CallSub(Form_Unload)
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("cmdSave_Click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4662_Data_Collection.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(form_unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.cmdSave_Click.End
+
+Program.Sub.Form_UnLoad.Start
+F.Intrinsic.Control.SetErrorHandler("Form_UnLoad_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+'closing connection and ending program
+GUI.Form..Visible(FALSE)
+F.ODBC.Connection!con.Close
+Function.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Form_UnLoad_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4662_Data_Collection.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.End
+
+Function.Intrinsic.Control.EndIf
+Program.Sub.Form_UnLoad.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$$}$12:00:00 AM$}$False
+Program.Sub.Comments.End
