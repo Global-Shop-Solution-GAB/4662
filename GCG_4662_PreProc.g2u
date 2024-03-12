@@ -1,0 +1,140 @@
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+'8/30/2017 Dawn Hughes
+'standard report hook
+
+Function.Intrinsic.Control.If(V.Caller.Hook, =, "16090")
+'dont do anything unless it's the Cost of Quality Report: Quality System> Reports
+'this will grab the information from the custom table GCG_4662_DATA and insert it in the BI_QUALITY when the report is run
+	Function.Intrinsic.Control.If(V.Passed.009001, =, "001558")
+		F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+		Function.Intrinsic.Control.CallSub(insert)
+		Function.Intrinsic.Control.CallSub(unload)
+	Function.Intrinsic.Control.EndIf
+Function.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4662_PreProc.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.INSERT.Start
+F.Intrinsic.Control.SetErrorHandler("INSERT_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+V.Local..BulkDeclareString(ssql,sRet,sFields, sValues, sDate, sSeq)
+V.Local..BulkDeclareFloat(fTotal, fLaobor)
+V.Local..BulkDeclareLong(iC)
+'this subroutine will add rows to the BI_QUALITY table
+'get the data based on the date range
+F.Intrinsic.String.Build("Select * From GCG_4662_Data Where DATE_CLOSED Between '{0}' And '{1}'", V.Passed.BIP_Begdate.PervasiveDate, V.Passed.BIP_Enddate.PervasiveDate, V.Local.ssql)
+F.Data.DataTable.CreateFromSQL("D", "con", V.Local.ssql)
+F.Data.DataTable.AddExpressionColumn("D", "Dept", "String","SUBSTRING(DEPARTMENT, 1, 4)")
+F.Data.DataTable.AddExpressionColumn("D", "WC", "String","SUBSTRING(WORK_CENTER, 1, 4)")
+F.Data.DataTable.AddExpressionColumn("D", "Disc", "String","SUBSTRING(DISCREPANCY, 1, 3)")
+F.Data.DataTable.AddExpressionColumn("D", "Scrap", "String","SUBSTRING(SCRAP_CODE, 1, 2)")
+F.Data.DataTable.AddExpressionColumn("D", "VendorNo", "String","SUBSTRING(VENDOR, 1, 6)")
+F.Data.DataTable.AddExpressionColumn("D", "KEYZ", "String","[JOB]+'-'+[SUFFIX]+'-'+[SEQ]")
+
+F.Data.DataTable.AddColumn("D", "NAME2", "String")
+F.Data.Dictionary.CreateFromSQL("dict", "con", "Select rTRim(DISCREP_CODE) as Disc, rTrim(DISCREP_DESC) As NAME2 FROM QUALITY_DISCRP_CD WHERE SYS = 'QUA' AND SUB_SYS = 'DIS'") 
+F.Data.Dictionary.SetDefaultReturn("dict", "")
+F.Data.DataTable.FillFromDictionary("D", "dict", "Disc", "NAME2")
+F.Data.Dictionary.Close("dict")
+
+F.Data.DataTable.CreateFromSQL("JD", "con", "Select * From JOB_DETAIL")
+F.Data.DataTable.AddExpressionColumn("JD", "KEYZ", "String","[JOB]+'-'+[SUFFIX]+'-'+[SEQ]")
+
+F.Data.DataTable.AddColumn("D", "Part", "String")
+F.Data.Dictionary.CreateFromDataTable("dict", "JD", "KEYZ", "PART")
+F.Data.Dictionary.SetDefaultReturn("dict", "")
+F.Data.DataTable.FillFromDictionary("D", "dict", "KEYZ", "PART")
+F.Data.Dictionary.Close("dict")
+
+F.Data.DataTable.AddColumn("D", "NAME1", "String")
+F.Data.Dictionary.CreateFromDataTable("dict", "JD", "KEYZ", "EMPLOYEE")
+F.Data.Dictionary.SetDefaultReturn("dict", "")
+F.Data.DataTable.FillFromDictionary("D", "dict", "KEYZ", "NAME1")
+F.Data.Dictionary.Close("dict")
+
+F.Data.DataTable.AddColumn("D", "AMOUNT_LABOR", "Float")
+F.Data.Dictionary.CreateFromDataTable("dict", "JD", "KEYZ", "AMOUNT_LABOR")
+F.Data.Dictionary.SetDefaultReturn("dict", 0.00)
+F.Data.DataTable.FillFromDictionary("D", "dict", "KEYZ", "AMOUNT_LABOR")
+F.Data.Dictionary.Close("dict")
+
+'part
+F.Data.DataTable.AddExpressionColumn("D", "Part17", "String","SUBSTRING(PART, 1, 17)")
+'rev
+F.Data.DataTable.AddExpressionColumn("D", "REV", "String","SUBSTRING(PART, 18, 20)")
+
+F.ODBC.Connection!con.ExecuteAndReturn("Select top 1 SEQUENCE From BI_QUALITY Where REC_TYPE = 'GT'", V.Local.sRet)
+F.Intrinsic.Math.Add(V.Local.sRet, 1, V.Local.sSeq)
+F.Intrinsic.String.LPad(V.Local.sSeq, "0", 9, V.Local.sSeq)
+F.Intrinsic.Control.For(V.Local.iC, 0, V.DataTable.D.RowCount--, 1)
+	V.Local.sDate.Set(V.DataTable.D(V.Local.iC).DATE_CLOSED!FieldValTrim)
+	F.Intrinsic.String.Format(V.Local.sDate, "MMDDYY", V.Local.sDate)
+	V.Local.sFields.Set("TERMINAL, RPTID, SEQUENCE, REC_TYPE, ACT_TYPE, QUAL_DATE, WORK_ORDER, WO_SUF, WO_SEQ, WORKCENTER, PART_NO, PART_REV, VENDOR, NAME1, NAME2, DOLLARS")
+	F.Intrinsic.String.Build("'{0}','{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}','{9}','{10}','{11}','{12}','{13}','{14}','{15}'", V.Passed.BIP_Terminal,"001558",V.Local.sSeq, "L",V.DataTable.D(V.Local.iC).ACT_TYPE!FieldValTrim, V.Local.sDate, V.DataTable.D(V.Local.iC).JOB!FieldValTrim, V.DataTable.D(V.Local.iC).SUFFIX!FieldValTrim, V.DataTable.D(V.Local.iC).SEQ!FieldValTrim, V.DataTable.D(V.Local.iC).WC!FieldValTrim,V.DataTable.D(V.Local.iC).Part17!FieldValTrim,V.DataTable.D(V.Local.iC).REV!FieldValTrim,V.DataTable.D(V.Local.iC).VENDORNO!FieldValTrim,V.DataTable.D(V.Local.iC).NAME1!FieldValTrim,V.DataTable.D(V.Local.iC).NAME2!FieldValTrim,V.DataTable.D(V.Local.iC).AMOUNT_LABOR!FieldValTrim,V.Local.sValues) 
+	F.Intrinsic.String.Build("Insert Into BI_QUALITY ({0}) Values ({1})", V.Local.sFields, V.Local.sValues, V.Local.ssql)
+	F.ODBC.Connection!con.Execute(V.Local.ssql) 
+	F.Intrinsic.Math.Add(V.Local.sSeq, 1, V.Local.sSeq)
+	F.Intrinsic.String.LPad(V.Local.sSeq, "0", 9, V.Local.sSeq)
+F.Intrinsic.Control.Next(V.Local.iC)
+'now take the grand total from the table and add in the internal and external dollars
+F.Data.DataTable.Compute("D", "SUM(AMOUNT_LABOR)", "", V.Local.fLaobor)
+F.ODBC.Connection!con.ExecuteAndReturn("Select TOT_DLRS From BI_QUALITY Where REC_TYPE = 'GT'", V.Local.fTotal)
+F.Intrinsic.Math.Add(V.Local.fLaobor,V.Local.fTotal, V.Local.fTotal)
+F.Intrinsic.String.Build("Update BI_QUALITY Set TOT_DLRS='{0}' Where REC_TYPE = 'GT'", V.Local.fTotal, v.Local.ssql) 
+F.ODBC.Connection!con.Execute(V.Local.ssql) 
+
+F.Data.DataTable.Compute("D", "SUM(AMOUNT_LABOR)", "ACT_TYPE = '5'", V.Local.fLaobor)
+F.Intrinsic.String.Build("Insert Into BI_QUALITY (TERMINAL, RPTID, SEQUENCE, REC_TYPE, ACT_TYPE, QUAL_DATE, WO_SEQ, TOT_DLRS, SUBTOT_TITLE) Values('{0}','{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}')", V.Passed.BIP_Terminal,"001558",V.Local.sSeq, "ST","5", "000000", "000000", V.Local.fLaobor, "Rework Labor Internal Total", V.Local.ssql)
+F.ODBC.Connection!con.Execute(V.Local.ssql)
+F.Intrinsic.Math.Add(V.Local.sSeq, 1, V.Local.sSeq)
+F.Intrinsic.String.LPad(V.Local.sSeq, "0", 9, V.Local.sSeq)
+F.Data.DataTable.Compute("D", "SUM(AMOUNT_LABOR)", "ACT_TYPE = '6'", V.Local.fLaobor)
+F.Intrinsic.String.Build("Insert Into BI_QUALITY (TERMINAL, RPTID, SEQUENCE, REC_TYPE, ACT_TYPE, QUAL_DATE, WO_SEQ, TOT_DLRS, SUBTOT_TITLE) Values('{0}','{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}')", V.Passed.BIP_Terminal,"001558",V.Local.sSeq, "ST","6", "000000", "000000", V.Local.fLaobor, "Rework Labor External Total", V.Local.ssql)
+F.ODBC.Connection!con.Execute(V.Local.ssql) 
+                                    
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("INSERT_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4662_PreProc.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.INSERT.End
+
+Program.Sub.UNLOAD.Start
+F.Intrinsic.Control.SetErrorHandler("UNLOAD_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+F.ODBC.Connection!con.Close
+Function.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("UNLOAD_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4662_PreProc.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.End
+
+Function.Intrinsic.Control.EndIf
+Program.Sub.UNLOAD.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$$}$12:00:00 AM$}$False
+${$3$}$0$}$$}$0$}$-1$}$$}$12:00:00 AM$}$This project will upload sales order via the web importer
+Program.Sub.Comments.End
